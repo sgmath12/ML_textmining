@@ -72,6 +72,7 @@ def calculate(A,zero_idx,N,alpha = 0.1,epsilon = 10**(-8)):
     k = 0
     while(1):
         r1 = (1-alpha)*((A.__mul__(coo_matrix(r0))).toarray() + r0[zero_idx].sum()/N) + alpha*p0
+        # L1-norm
         if (np.linalg.norm((r1-r0),ord = 1) <= epsilon):
             break
         r0 = r1
