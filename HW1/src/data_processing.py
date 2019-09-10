@@ -25,28 +25,24 @@ def transpose_idx(data):
 # Return
 def read_transition_matrix():
     '''
-    return (ijv format matrix, array of idx indicating position of zero col)
+    Return :
+        (ijv format matrix, array of idx indicating position of zero col)
     '''
-
     data = np.loadtxt("./data/transition.txt").astype('float32')
     data = transpose_idx(data)
     N = int(data.max()) + 1
-    count = np.full(N,0,dtype = np.int32)
-
-    for row in data:
-        count[int(row[1])] +=1
-    
-    for i,row in enumerate(data):
-        data[i,2] /= count[int(row[1])]
 
     row = data[:,0].astype('int32')
     col = data[:,1].astype('int32')
-   
-    zero_idx = np.setdiff1d(np.arange(N),np.unique(col))
-   
     val = data[:,2]
-    data = coo_matrix((val,(row,col)),shape=(N,N))
 
+    zero_idx = np.setdiff1d(np.arange(N),np.unique(col))
+    data = coo_matrix((val,(row,col)),shape=(N,N))
+    row_sum = np.array(data.sum(axis = 0))
+    # for avoiding zero divide
+    row_sum[row_sum==0] = 1  
+    data = data.multiply((1/row_sum))
+    
     return data,zero_idx,N
             
 def calculate(A,zero_idx,N,alpha = 0.2,epsilon = 10**(-8)):
@@ -71,7 +67,6 @@ def calculate(A,zero_idx,N,alpha = 0.2,epsilon = 10**(-8)):
         if (np.linalg.norm((r1-r0),ord = 1) <= epsilon):
             break
         r0 = r1
-
     return r1
 
 A,zero_idx,N = read_transition_matrix() 
