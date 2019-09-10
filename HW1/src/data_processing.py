@@ -33,33 +33,28 @@ def read_transition_matrix():
     N = int(data.max()) + 1
     count = np.full(N,0,dtype = np.int32)
 
-    zero_idx = np.array([])
     for row in data:
         count[int(row[1])] +=1
     
     for i,row in enumerate(data):
         data[i,2] /= count[int(row[1])]
-        
-    for i,v in enumerate(count):
-        if (v == 0):
-            zero_idx = np.append(zero_idx,i).astype('int32')
-
 
     row = data[:,0].astype('int32')
     col = data[:,1].astype('int32')
+   
+    zero_idx = np.setdiff1d(np.arange(N),np.unique(col))
+   
     val = data[:,2]
-
     data = coo_matrix((val,(row,col)),shape=(N,N))
+
     return data,zero_idx,N
             
-
-
-def calculate(A,zero_idx,N,alpha = 0.1,epsilon = 10**(-8)):
+def calculate(A,zero_idx,N,alpha = 0.2,epsilon = 10**(-8)):
     '''
     arg
         A : Sparse matrix by scify coo_matrix
         zero_idx : indicating idx of zero column
-        alpha : hyperparmeter. 0.1 ~ 0.2
+        alpha : hyperparmeter : 0.1 ~ 0.2
         epsilon : criterion of convergence
 
     return :
@@ -69,21 +64,20 @@ def calculate(A,zero_idx,N,alpha = 0.1,epsilon = 10**(-8)):
     p0 = np.array(N*[1/N]).reshape([N,1])
     r0 = np.array(N*[1/N]).reshape([N,1])
 
-    k = 0
     while(1):
-        r1 = (1-alpha)*((A.__mul__(coo_matrix(r0))).toarray() + r0[zero_idx].sum()/N) + alpha*p0
+        r1 = (1-alpha)*((A.__mul__(coo_matrix(r0))).toarray() + r0[zero_idx].sum()/N) \
+            + alpha*p0
         # L1-norm
         if (np.linalg.norm((r1-r0),ord = 1) <= epsilon):
             break
         r0 = r1
-        k += 1
 
-    print(k)
-    return r0,r1
+    return r1
 
 A,zero_idx,N = read_transition_matrix() 
-r0,r1 = calculate(A,zero_idx,N)
-print(r1.sum())
+r1 = calculate(A,zero_idx,N)
+print(r1[:10])
+
 
 
     
