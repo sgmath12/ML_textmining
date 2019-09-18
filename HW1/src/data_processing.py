@@ -54,7 +54,7 @@ def read_transition_matrix(filename = "transition.txt"):
     
     return data,zero_idx,docs
             
-def calculate(A,zero_idx,docs,alpha = 0.8,beta = 0.0,epsilon = 10**(-8),P_t = None,topics = 1):
+def calculate(A,zero_idx,docs,alpha = 0.8,beta = 0.0,epsilon = 10**(-8),P_t = None):
     '''
     arg
         A : Sparse matrix by scify coo_matrix
@@ -66,12 +66,12 @@ def calculate(A,zero_idx,docs,alpha = 0.8,beta = 0.0,epsilon = 10**(-8),P_t = No
     '''
 
     
-    p0 = r0 = np.array(topics*docs*[1/docs]).reshape([docs,topics])
+    p0 = r0 = np.array(docs*[1/docs]).reshape([docs,1])
 
     if P_t == None:
         P_t = 0
     gamma = 1 - alpha - beta
-    print ("hello",p0.shape)
+
 
     while(1):
 
@@ -85,11 +85,56 @@ def calculate(A,zero_idx,docs,alpha = 0.8,beta = 0.0,epsilon = 10**(-8),P_t = No
         r0 = r1
     return r1
 
+def weighted_sum(rt = 1,filename = "query-topic-distro.txt"):
+    '''
+    Args : 
+        rt = TSPR vectors
+    Return :
+        rq = TSPR vectors given a query q
+        Here, there are total 38 queries, So this function returns (docs,38) np.array
+    '''
+    with open("./data/"+filename) as f:
+        content = f.readlines()
+ 
+    content = [x.strip() for x in content]
+    topics = np.empty((0,12), float)
+    
+    for line in content:
+        topic_weight = np.array([])
+        line = line.split()
+        for t in range(2,14):
+            topic_weight = np.append(topic_weight,float(line[t].split(':')[1]))
+
+        topic_weight = topic_weight.reshape(1,12)
+        topics = np.append(topics, topic_weight, axis=0)
+
+    topics = topics.transpose()
+    print (rt.shape)
+    print (topics.shape)
+
+def read_indri_file(filename = None):
+    data = np.genfromtxt('./data/indri-lists/' + '2-1.results.txt',dtype='str')
+    data_2 = np.genfromtxt('./data/query-topic-distro.txt',dtype = 'str')
+   # print (data[:,[2,4]])
+    print (data_2[:,2:])
+
+
+'''
 A,zero_idx,docs = read_transition_matrix() 
 r1 = calculate(A,zero_idx,docs)
-print (r1[:10])
+
 
 P_t,_,_ = read_transition_matrix(filename = "doc_topics.txt")
-print (P_t.shape)
-rt = calculate(A,zero_idx,docs,beta = 0.1,P_t = P_t,topics = 12 )
-print (rt.sum())
+
+rt = np.empty((docs,0),float)
+for topic in range(12):
+    r = calculate(A,zero_idx,docs,beta = 0.1,P_t = P_t.getcol(topic))
+    rt = np.hstack((rt,r))
+   
+
+weighted_sum(rt)
+'''
+read_indri_file()
+
+
+
