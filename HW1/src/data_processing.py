@@ -78,26 +78,25 @@ def calculate(A,zero_idx,docs,alpha = 0.8,beta = 0.0,epsilon = 10**(-8),P_t = No
         r1 = (alpha)*((A.__mul__((r0))) + r0[zero_idx].sum()/docs) \
             + (beta)*P_t \
             + (gamma)*p0
-
         # L1-norm
         if (np.linalg.norm((r1-r0),ord = 1) <= epsilon):
             break
         r0 = r1
     return r1
 
-def weighted_sum(rt = 1,filename = "query-topic-distro.txt"):
+def read_topic_distro(Rt = 1,filename = "query-topic-distro.txt"):
     '''
     Args : 
-        rt = TSPR vectors
+        Rt = TSPR vectors
     Return :
-        rq = TSPR vectors given a query q
-        Here, there are total 38 queries, So this function returns (docs,38) np.array
+        p(t|q) probablity of topic given q
     '''
     with open("./data/"+filename) as f:
         content = f.readlines()
  
     content = [x.strip() for x in content]
-    topics = np.empty((0,12), float)
+    Probability_given_query = {}
+    #topics = np.empty((0,12), float)
     
     for line in content:
         topic_weight = np.array([])
@@ -105,36 +104,52 @@ def weighted_sum(rt = 1,filename = "query-topic-distro.txt"):
         for t in range(2,14):
             topic_weight = np.append(topic_weight,float(line[t].split(':')[1]))
 
-        topic_weight = topic_weight.reshape(1,12)
-        topics = np.append(topics, topic_weight, axis=0)
+        topic_weight = topic_weight.reshape(12,1)
+        Probability_given_query[int(line[0]),int(line[1])] = topic_weight
 
-    topics = topics.transpose()
-    print (rt.shape)
-    print (topics.shape)
+    print (Probability_given_query[(2,1)])
+    return Probability_given_query
 
-def read_indri_file(filename = None):
+def calculate_TSPR(Rt,Probability_given_query):
+    '''
+    Args :
+        Rt = (doc,topic)
+        Probability_given_query : (topics,1)
+    Return :
+        (docs,1)
+    '''
+    return Rt * Probability_given_query
+
+def read_indri_file(docs,filename = None):
+    ''' 
+    Args :
+        docs = 81433
+        filename = "a-b.results.txt" a-b is just a unique id given by homework file. 
+    Return :
+        return idx and score of retrieval doc
+    '''
     data = np.genfromtxt('./data/indri-lists/' + '2-1.results.txt',dtype='str')
-    data_2 = np.genfromtxt('./data/query-topic-distro.txt',dtype = 'str')
-   # print (data[:,[2,4]])
-    print (data_2[:,2:])
+    doc_idx = (data[:,2]).astype('int32')
+    score = (data[:,4]).astype('float32')
 
+    
 
-'''
 A,zero_idx,docs = read_transition_matrix() 
 r1 = calculate(A,zero_idx,docs)
 
 
 P_t,_,_ = read_transition_matrix(filename = "doc_topics.txt")
 
-rt = np.empty((docs,0),float)
+#Rt =
+Rt = np.empty((docs,0),float)
 for topic in range(12):
     r = calculate(A,zero_idx,docs,beta = 0.1,P_t = P_t.getcol(topic))
-    rt = np.hstack((rt,r))
+    Rt = np.hstack((Rt,r))
    
 
-weighted_sum(rt)
-'''
-read_indri_file()
+read_topic_distro(Rt)
+
+read_indri_file(docs = docs)
 
 
 
