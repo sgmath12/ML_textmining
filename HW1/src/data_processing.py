@@ -2,19 +2,6 @@ import numpy as np
 from scipy.sparse import csc_matrix
 import os
 
-'''
-def transpose_idx(data):
-    
-    args : data = np.array with shape (N,3)
-           ijv format matrix
-    
-
-    # -1 : set index start from zero
-    tmp = data[:,0].copy() - 1
-    data[:,0] = data[:,1] - 1
-    data[:,1] = tmp
-    return data
-'''
 
 def read_transition_matrix(filename = "transition.txt"):
     '''
@@ -84,10 +71,11 @@ def calculate(A,zero_idx,docs,alpha = 0.8,beta = 0.0,epsilon = 10**(-8),P_t = No
         r0 = r1
     return r1
 
-def read_topic_distro(Rt = 1,filename = "query-topic-distro.txt"):
+def read_topic_distro(Rt = 1,filename = "user-topic-distro.txt"):
     '''
     Args : 
         Rt = TSPR vectors
+        filename = "user-topic-distro.txt" or "query-topic-distro.txt"
     Return :
         p(t|q) probablity of topic given q
     '''
@@ -107,10 +95,9 @@ def read_topic_distro(Rt = 1,filename = "query-topic-distro.txt"):
         topic_weight = topic_weight.reshape(12,1)
         Probability_given_query[int(line[0]),int(line[1])] = topic_weight
 
-    print (Probability_given_query[(2,1)])
     return Probability_given_query
 
-def calculate_TSPR(Rt,Probability_given_query):
+def calculate_TSPR(Rt,Probability_given_query,key):
     '''
     Args :
         Rt = (doc,topic)
@@ -118,38 +105,91 @@ def calculate_TSPR(Rt,Probability_given_query):
     Return :
         (docs,1)
     '''
-    return Rt * Probability_given_query
+    return Rt*(Probability_given_query[key])
 
-def read_indri_file(docs,filename = None):
+def indri_key():
+    filename = "user-topic-distro.txt"
+    keys = []
+    with open("./data/"+filename) as f:
+        content = f.readlines()
+    content = [x.strip() for x in content]
+    for line in content:
+        line = line.split()
+        keys.append((int(line[0]),int(line[1])))
+    
+    return keys
+
+
+def read_indri_file(queryID,filename = None):
     ''' 
     Args :
-        docs = 81433
-        filename = "a-b.results.txt" a-b is just a unique id given by homework file. 
+        queryID : a,b is just a unique id given by homework file. 
+        
     Return :
         return idx and score of retrieval doc
     '''
+    queryID = str(queryID[0]) + '-' + str(queryID[1])
+    filename = queryID +".results.txt"
     data = np.genfromtxt('./data/indri-lists/' + '2-1.results.txt',dtype='str')
     doc_idx = (data[:,2]).astype('int32')
-    score = (data[:,4]).astype('float32')
+    score = (data[:,4]).astype('float32').reshape(len(data),1)
+    return doc_idx,score
+
+
+def weighted_sum(PageRank,doc_idx,score,alpha = 0.8):
+    result = alpha * PageRank[doc_idx] + (1-alpha)*score   
+    return result
+
+def make_all_docs_score(PageRank,filename = "GPR_NS.txt"):
+    f = open("guru99.txt","w+")
+
+
+
+
+def main():
+    # keys = unique query ID.
+    keys = indri_key()
+    keys.sort()
+
+    A,zero_idx,docs = read_transition_matrix() 
+    GPR = calculate(A,zero_idx,docs)
+    
+    P_t,_,_ = read_transition_matrix(filename = "doc_topics.txt")
+    RT = np.empty((docs,0),float)
+    for topic in range(12):
+        r = calculate(A,zero_idx,docs,beta = 0.1,P_t = P_t.getcol(topic))
+        RT = np.hstack((RT,r))
+
+    Probability_given_querytopic = read_topic_distro(RT,filename = "query-topic-distro.txt")
+    Probability_given_usertopoic = read_topic_distro(RT,filename = "user-topic-distro.txt")
+    
+    QTSPR = {}
+    PTSPR = {}
+
+    for key in keys:
+        QTSPR[key] = calculate_TSPR(RT,Probability_given_querytopic,key)
+        PTSPR[key] = calculate_TSPR(RT,Probability_given_usertopoic,key)
+
+
+    GPR_WS = {}
+    QTSPR_WS = {}
+    PTSPR_WS = {}
+
+    for key in keys:
+        #key = str(key[0])+'-'+str(key[1])
+        doc_idx,score = read_indri_file(key)
+        GPR_WS[key] = weighted_sum(GPR,doc_idx,score)
+
+    for key in keys:
+        #key = str(key[0])+'-'+str(key[1])
+        doc_idx,score = read_indri_file(key)
+        QTSPR_WS[key] = weighted_sum(QTSPR[key],doc_idx,score)
+
+    for key in keys:
+        #key = str(key[0])+'-'+str(key[1])
+        doc_idx,score = read_indri_file(key)
+        PTSPR_WS[key] = weighted_sum(PTSPR[key],doc_idx,score)
 
     
 
-A,zero_idx,docs = read_transition_matrix() 
-r1 = calculate(A,zero_idx,docs)
-
-
-P_t,_,_ = read_transition_matrix(filename = "doc_topics.txt")
-
-#Rt =
-Rt = np.empty((docs,0),float)
-for topic in range(12):
-    r = calculate(A,zero_idx,docs,beta = 0.1,P_t = P_t.getcol(topic))
-    Rt = np.hstack((Rt,r))
-   
-
-read_topic_distro(Rt)
-
-read_indri_file(docs = docs)
-
-
-
+main()
