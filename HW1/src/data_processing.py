@@ -130,19 +130,62 @@ def read_indri_file(queryID,filename = None):
     '''
     queryID = str(queryID[0]) + '-' + str(queryID[1])
     filename = queryID +".results.txt"
-    data = np.genfromtxt('./data/indri-lists/' + '2-1.results.txt',dtype='str')
+    data = np.genfromtxt('./data/indri-lists/' + queryID+ '.results.txt',dtype='str')
     doc_idx = (data[:,2]).astype('int32')
     score = (data[:,4]).astype('float32').reshape(len(data),1)
     return doc_idx,score
 
 
 def weighted_sum(PageRank,doc_idx,score,alpha = 0.8):
-    result = alpha * PageRank[doc_idx] + (1-alpha)*score   
+    '''
+    Args :
+        PageRank : GPR or QTSPR or PTSPR (vectors)
+    Return :
+        Weighted sum of PageRank and retrieval score
+    '''
+    N = len(doc_idx)
+
+    result = doc_idx.reshape(N,1)
+    result = np.hstack((result,alpha * PageRank[doc_idx] + (1-alpha)*score))
+    # sort
+    result = result[result[:,1].argsort()]
+    return result[::-1]
+
+def custom_weighted_sum(PageRank,doc_idx,score,alpha = 0.4):
+    cumulated_sum = 0
+    threshold = 0.000001
+    N = len(doc_idx)
+    result = doc_idx.reshape(N,1)
+    k = -1
+    
+    for i in range(1,N-1):
+        cumulated_sum += abs(score[i+1] - score[i])
+        score[i] = [k]
+        if cumulated_sum > threshold:
+            cumulated_sum = 0
+            k -= 1
+    score[N-1] = [k]
+    
+    result = np.hstack((result,alpha * PageRank[doc_idx] + (1-alpha)*score))
+    result = result[result[:,1].argsort()]
+
+
     return result
 
-def make_all_docs_score(PageRank,filename = "GPR_NS.txt"):
-    f = open("guru99.txt","w+")
-
+def make_all_queries_score(PageRank,keys,filename = "GPR_WS.txt"):
+    # 10-1 Q0 clueweb09-enwp03-35-1378 1 16 run-1
+    result = []
+    for key in keys:
+        for i,value in enumerate(PageRank[key]):
+            result.append((str(key[0])+'-'+str(key[1]) + " Q0" +' '+str(int(value[0])) +' '+\
+                 ' '+ str(i+1) +' '+ ' ' + str(value[1]) \
+                + " run-1"))
+    
+    
+    with open(filename, 'w') as f:
+        for item in result:
+            f.write("%s\n" % item)
+    
 
 
 
@@ -152,7 +195,7 @@ def main():
     keys.sort()
 
     A,zero_idx,docs = read_transition_matrix() 
-    GPR = calculate(A,zero_idx,docs)
+    GPR_tmp = calculate(A,zero_idx,docs)
     
     P_t,_,_ = read_transition_matrix(filename = "doc_topics.txt")
     RT = np.empty((docs,0),float)
@@ -163,33 +206,57 @@ def main():
     Probability_given_querytopic = read_topic_distro(RT,filename = "query-topic-distro.txt")
     Probability_given_usertopoic = read_topic_distro(RT,filename = "user-topic-distro.txt")
     
+    GPR = {}
     QTSPR = {}
     PTSPR = {}
 
     for key in keys:
+        GPR[key] = GPR_tmp
         QTSPR[key] = calculate_TSPR(RT,Probability_given_querytopic,key)
         PTSPR[key] = calculate_TSPR(RT,Probability_given_usertopoic,key)
 
 
-    GPR_WS = {}
+
+    GPR_WS  = {}
+    GPR_CM = {}
     QTSPR_WS = {}
+    QTSPR_CM = {}
     PTSPR_WS = {}
 
     for key in keys:
         #key = str(key[0])+'-'+str(key[1])
         doc_idx,score = read_indri_file(key)
-        GPR_WS[key] = weighted_sum(GPR,doc_idx,score)
+        GPR_WS[key] = weighted_sum(GPR[key],doc_idx,score)
+
 
     for key in keys:
         #key = str(key[0])+'-'+str(key[1])
         doc_idx,score = read_indri_file(key)
-        QTSPR_WS[key] = weighted_sum(QTSPR[key],doc_idx,score)
+        GPR_CM[key] = custom_weighted_sum(GPR[key],doc_idx,score)
+
+    print (GPR[key].shape)
+    print (GPR_CM[key].shape)
+    
+    for key in keys:
+        #key = str(key[0])+'-'+str(key[1])
+        doc_idx,score = read_indri_file(key)
+        QTSPR_WS[key] = weighted_sum(QTSPR[key],doc_idx,score).squeeze()
+        
+
+    print (QTSPR[key].shape)
+    print (QTSPR_WS[key].shape)
+
+    for key in keys:
+        #key = str(key[0])+'-'+str(key[1])
+        doc_idx,score = read_indri_file(key)
+        QTSPR_CM[key] = custom_weighted_sum(QTSPR[key],doc_idx,score)
 
     for key in keys:
         #key = str(key[0])+'-'+str(key[1])
         doc_idx,score = read_indri_file(key)
         PTSPR_WS[key] = weighted_sum(PTSPR[key],doc_idx,score)
 
-    
+   
+    make_all_queries_score(QTSPR_CM,keys = keys,filename = "test_x.txt")
 
 main()
