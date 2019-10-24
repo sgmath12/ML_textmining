@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 trainpath = '../data/train.csv'
 devpath = '../data/dev.queries'
-outpath = '../eval/dev_user_preds.csv'
+outpath = '../eval/dev_pcc_preds.csv'
 
 def calculate(X,topUser,score,method = "mean"):
     
@@ -40,36 +40,24 @@ def kNN(score,k):
         sort by the score matrix along with axis = 0, then
         return score, (users, top k users) matrix
     '''
-    score = score.toarray()
     topUser = (-score).argsort(axis = 0,kind = 'stable')
 
     return score,topUser[:k+1].T
 
-def dotProduct(X,query):
+def corrcoef(X,query):
     '''
     Args : 
         X = (train user,movie) csr matrix
         query = (movie,query user) csr matrix
         
-    Return : dot product with other users
+    Return : 
+        (user,user) correlation coeeficient matrix 
     '''
-    return X*query
-
-def cosineProduct(X,query):
-    '''
-    Args : 
-        X = (train user,movie) csr matrix
-        query = (movie,query user) csr matrix
-        
-    Return : cosine product with other users
-    '''
-    X = normalize(X, norm='l2', axis=1)
-    query = normalize(query,norm='l2',axis = 0)
-    return X*query
+    X = X.toarray()
+    return np.cov(X)
 
 
-def play(args):
-    
+
 args = load_review_data_matrix(trainpath)
 X = args.X
 total_movies = X.shape[1]
@@ -78,11 +66,9 @@ data,rows_cols,users = load_query_data(devpath)
 max_query_user = max(list(set(users)))
 query = csr_matrix((data, rows_cols),shape = [max_query_user+1,total_movies]).transpose()
 
-userSimilarity = cosineProduct(X,query)
+userSimilarity = corrcoef(X,query)
 score,topUser = kNN(userSimilarity,10)
-calculate(X,topUser,score,"weighted")
-
-
+calculate(X,topUser,score,"mean")
 
 
 

@@ -18,7 +18,8 @@ def calculate(X,topK,score,method = "mean"):
                 predict = X[:,idx].mean(1)
             else:
                 mov_id = np.ones_like(idx)*mov_id
-                weighted = (score[mov_id,idx]/np.sum(score[mov_id,idx])).reshape([1,-1])
+                weighted = (score[mov_id,idx]/np.sum(abs(score[mov_id,idx]))).reshape([1,-1])
+                weighted = np.nan_to_num(weighted)
                 predict = (X[:,idx].multiply(weighted)).sum(axis = 1)
                 
             preds.append(str((predict[u_id,0]+3)))  
@@ -44,7 +45,7 @@ def kNN(score,k):
     topK = (-score).argsort(axis = 0,kind = 'stable')
     return score,topK[:k+1].T
 
-def DotProduct(X,query):
+def dotProduct(X,query):
     '''
     Args : 
         X = (train user,movie) csr matrix
@@ -54,9 +55,21 @@ def DotProduct(X,query):
     '''
     return X*query
 
+def cosineProduct(X,query):
+    '''
+    Args : 
+        X = (train user,movie) csr matrix
+        query = (movie,query user) csr matrix
+        
+    Return : cosine product with other users
+    '''
+    X = normalize(X, norm='l2', axis=0)
+    query = normalize(query,norm='l2',axis = 1)
+    return X*query
+
 args = load_review_data_matrix(trainpath)
 X = args.X
 
-itemSimilarity = DotProduct(X.transpose(),X)
+itemSimilarity = dotProduct(X.transpose(),X)
 score,topK = kNN(itemSimilarity,10)
 calculate(X,topK,score,"weighted")
